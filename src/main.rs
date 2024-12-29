@@ -1,6 +1,5 @@
 use std::io::{self, Write};
-use std::env;
-use std::fs::{self, read_to_string, File};
+use std::fs::{read_to_string, File};
 
 fn main() {
     println!("Hello, world!, welcome to my Todo list cli");
@@ -129,15 +128,15 @@ impl Item {
     fn get_title(&self) -> &String {
         &self.title
     }
-    fn set_title(&mut self, title: String) {
-        self.title = title;
-    }
-    fn set_description(&mut self, description: String) {
-        self.description = description;
-    }
-    fn set_priority(&mut self, priority: i32) {
-        self.priority = priority;
-    }
+    // fn set_title(&mut self, title: String) {
+    //     self.title = title;
+    // }
+    // fn set_description(&mut self, description: String) {
+    //     self.description = description;
+    // }
+    // fn set_priority(&mut self, priority: i32) {
+    //     self.priority = priority;
+    // }
     
     fn repr(&self) -> String{
         let res = format!("Title: {} \n Description: {} \n Priority: {}", &self.get_title(), &self.get_description(), &self.get_priority());
@@ -186,7 +185,6 @@ impl TodoItems {
     fn load_items(&mut self) {
         let file_name = "db.txt";
 
-        // Try to read the file, and handle potential errors gracefully
         let content = match read_to_string(file_name) {
             Ok(data) => data,
             Err(_) => {
@@ -195,12 +193,12 @@ impl TodoItems {
             }
         };
 
-        let mut lines = content.lines(); // Iterator for file lines
+        let mut lines = content.lines();
 
         while let Some(title) = lines.next() {
             let description = match lines.next() {
                 Some(desc) => desc.trim().to_string(),
-                None => {
+                _ => {
                     println!("Incomplete data for item: {}", title);
                     continue;
                 }
@@ -208,7 +206,7 @@ impl TodoItems {
 
             let priority = match lines.next() {
                 Some(pri) => pri.trim().parse::<i32>().ok(),
-                None => None,
+                _ => None,
             };
 
             // Check if priority is valid
