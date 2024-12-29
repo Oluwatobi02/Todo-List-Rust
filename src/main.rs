@@ -1,9 +1,13 @@
-use std::io;
+use std::io::{self, Write};
+use std::env;
+use std::fs::{self, read_to_string, File};
+
 fn main() {
     println!("Hello, world!, welcome to my Todo list cli");
     let mut todo_list = TodoItems {
         items: Vec::new(),
     };
+    todo_list.load_items();
     loop {
 
         let task = ask_user();
@@ -15,15 +19,13 @@ fn main() {
         "read all" => todo_list.show_items(),
         _ => println!("Invalid input")
     }
-}
-
- 
+} 
 }
 
 fn create_task(todo_list: &mut TodoItems) {
     let (title, description, priority) = get_user_input();
     let item = build_todo_item(title, description, priority);
-    todo_list.add_item(item);
+    todo_list.add_item(item, "self");
 }
 fn delete_task(todo_list: &mut TodoItems) {
     let mut item_to_delete = String::new();
@@ -32,7 +34,7 @@ fn delete_task(todo_list: &mut TodoItems) {
     let result = todo_list.delete_item(item_to_delete.trim());
     match result {
         Some(_val) => println!("Deleted item!"),
-        None => println!("Could not find item"),
+        _ => println!("Could not find item"),
     }
 }
 
@@ -45,7 +47,7 @@ fn read_task(todo_list: &TodoItems){
 
     match item1 {
         Some(val) => println!("{}", val.repr()),
-        None => println!("Could not find item"),
+        _ => println!("Could not find item"),
     }  
 }
 fn ask_user() -> String {
@@ -127,12 +129,15 @@ impl Item {
     fn get_title(&self) -> &String {
         &self.title
     }
-    // fn set_description(&mut self, description: String) {
-    //     self.description = description;
-    // }
-    // fn set_priority(&mut self, priority: i32) {
-    //     self.priority = priority;
-    // }
+    fn set_title(&mut self, title: String) {
+        self.title = title;
+    }
+    fn set_description(&mut self, description: String) {
+        self.description = description;
+    }
+    fn set_priority(&mut self, priority: i32) {
+        self.priority = priority;
+    }
     
     fn repr(&self) -> String{
         let res = format!("Title: {} \n Description: {} \n Priority: {}", &self.get_title(), &self.get_description(), &self.get_priority());
@@ -155,13 +160,15 @@ impl TodoItems {
         return None;
     }
 
-    fn add_item(&mut self, item: Item) {
+    fn add_item(&mut self, item: Item, from: &str) {
         self.items.push(item);
+        let _ = self.write_to_file(from);
     }
 
     fn delete_item(&mut self, title: &str) -> Option<bool> {
         if let Some(item_position) = self.items.iter().position(|item| item.get_title() == title) {
             self.items.swap_remove(item_position);
+            let _ = self.write_to_file("self");
             return Some(true);
         }
         else {
@@ -174,5 +181,70 @@ impl TodoItems {
             println!("{}", x.repr());
             println!("//////////////////////////////");
         }
+    }
+
+    fn load_items(&mut self) {
+        let file_name = "db.txt";
+
+        // Try to read the file, and handle potential errors gracefully
+        let content = match read_to_string(file_name) {
+            Ok(data) => data,
+            Err(_) => {
+                println!("Could not read the file. Starting with an empty list.");
+                return;
+            }
+        };
+
+        let mut lines = content.lines(); // Iterator for file lines
+
+        while let Some(title) = lines.next() {
+            let description = match lines.next() {
+                Some(desc) => desc.trim().to_string(),
+                None => {
+                    println!("Incomplete data for item: {}", title);
+                    continue;
+                }
+            };
+
+            let priority = match lines.next() {
+                Some(pri) => pri.trim().parse::<i32>().ok(),
+                None => None,
+            };
+
+            // Check if priority is valid
+            if let Some(priority) = priority {
+                let item = Item {
+                    title: title.trim().to_string(),
+                    description,
+                    priority,
+                };
+                self.add_item(item, "load items");
+            } else {
+                println!("Invalid priority for item: {}", title);
+            }
+
+            // Skip the delimiter line (if it exists)
+            if let Some(delimiter) = lines.next() {
+                if delimiter.trim() != "/////////////////////////////////////////////////////////////" {
+                    println!("Unexpected format. Skipping malformed item.");
+                }
+            }
+        }
+
+        println!("Loaded items from the file.");
+    }
+    fn write_to_file(&self, from : &str) -> io::Result<()> {
+        if from != "load items" {
+            let file_name = "db.txt";
+            let mut file = File::create(file_name)?;
+            for x in &self.items {
+                writeln!(file, "{}", x.get_title())?;
+                writeln!(file, "{}", x.get_description())?;
+                writeln!(file, "{}", x.get_priority())?;
+                writeln!(file, "/////////////////////////////////////////////////////////////")?;
+                println!("done writing to file");
+            }
+        }
+        Ok(())
     }
 }
